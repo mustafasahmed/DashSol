@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+<data>
+
+    <record id="view_telegram_command_tree" model="ir.ui.view">
+        <field name="name">telegram.command.tree</field>
+        <field name="model">telegram.command</field>
+        <field name="arch" type="xml">
+            <tree string="Telegram Command">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="type"/>
+                <field name="active"/>
+                <field name="description"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_telegram_command_form" model="ir.ui.view">
+        <field name="name">telegram.command.form</field>
+        <field name="model">telegram.command</field>
+        <field name="arch" type="xml">
+            <form string="Telegram Command">
+                <sheet>
+                    <div class="oe_title">
+                              <label for="name" class="oe_edit_only"/>
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                              <label for="description" class="oe_edit_only"/>
+                              <h2>
+                                    <field name="description"/>
+                              </h2>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="type" class="oe_inline"/>
+                            <field name="active"/>
+                            <field name="group_ids" widget="many2many_tags"/>
+                            <field name="model_ids" widget="many2many_tags" attrs="{'invisible': [('type', '=', 'normal')]}"/>
+                            <field name="universal"  attrs="{'invisible': [('type', '=', 'normal')]}"  class="oe_inline"/>
+                        </group>
+                        <group>
+                            <field name="menu_id"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page String="Response">
+                            <group>
+                                <field name="response_code"/>
+                                <field name="response_template"/>
+                                <field name="post_response_code"/>
+                            </group>
+                        </page>
+                        <page String="Notification">
+                            <p>Notification can be used in subscriptions or for delayed response</p>
+                            <group>
+                                <field name="notification_code"/>
+                                <field name="notification_template"/>
+                            </group>
+                        </page>
+                        <page String="Subscribers" attrs="{'invisible': [('type', '!=', 'subscription')]}">
+                            <field name="user_ids"/>
+                        </page>
+                        <page string="Help">
+                            <p>
+<h3>Template fields</h3>
+
+Check official qweb documentation: <a href="https://www.odoo.com/documentation/8.0/reference/qweb.html">https://www.odoo.com/documentation/8.0/reference/qweb.html</a>
+                            </p>
+
+                            <p>
+<h3>Code fields</h3>
+<pre>
+Vars that can be updated:
+* data - empty dictonary to be filled with any data for rendering
+* options - dictonary to control processing
+  * options['notify_user_ids'] - list interger user ids to be notified in subscription commands (will affect only if user is subscribed). With empty list nobody receives notification. With unspecified value all subscribers receive notification.
+  * options['reply_markup'] 
+    * Values: types.InlineKeyboardMarkup | types.ReplyKeyboardMarkup | types.ReplyKeyboardRemove. 
+    * See reply_markup in https://core.telegram.org/bots/api#sendmessage
+    * Provides low-level access to reply_markup. It's used implicitly in:
+      * command.inline_keyboard_buttons, command.keyboard_buttons
+      * options['handle_reply']
+  * options['charts'] (module telegram_chart is required) - list of pygal chart objects
+  * options['photos'] - list of dictionaries with keys
+    * data
+    * type = "file"|"base64". Default is "base64".
+    * filename
+  * options['editMessageText'] - dictonary with identifier (message_id or inline_message_id). Allows to update existed message instead of sending new one. See https://core.telegram.org/bots/api#editmessagetext. 
+  * options['handle_reply']
+    * dictonary {'replies': {REPLY: DATA}, 'custom_reply': DATA}. 
+    * If user send some value from REPLY, then this command will be called again with telegram['callback_data'] equal to corresponded DATA and and telegram['callback_data'] equal to 'reply'. 
+    * If custom_reply is present and user send response not from 'replies', then this command is called with telegram['callback_data'] and telegram['callback_data'] equal to 'custom_reply'
+* context - dictonary to save json serializable data between user requests.
+
+Vars that can be used:
+* command - telegram.command record
+  * command.inline_keyboard_buttons(options, buttons, row_width=None) adds set of inline button to response. See https://core.telegram.org/bots/api#inlinekeyboardbutton . Argument buttons is a list of dictonary
+    * text=TEXT
+    * callback_data=ANY_DATA
+  * command.keyboard_buttons(options, buttons, row_width=None) adds set of reply button to response. See https://core.telegram.org/bots/api#keyboardbutton. Argument buttons is a list of dictonary
+    * text=TEXT
+    * callback_data=ANY_DATA
+* telegram - dictonary with some input data
+  * telegram['tsession'] - telegram.session record. 
+    * telegram['tsession'].get_odoo_session() - the same as request.session in odoo
+  * telegram['tmessage'] - message from telegram. See https://core.telegram.org/bots/api#message
+    * telegram['tmessage'].text - actual UTF-8 text of the message
+  * telegram['callback_query'] - original telegram object. See https://core.telegram.org/bots/api#callbackquery
+  * telegram['callback_data'] - callback data. See telegram['callback_type']
+  * telegram['callback_type']
+    * 'reply' | 'custom_reply' - see see options['handle_reply'] and command.keyboard_buttons above
+    * 'inline' - Is used when user click on inline button see https://core.telegram.org/bots/api#inlinekeyboardbutton. About adding inline buttons see options['reply_markup'] and command.inline_keyboard_buttons above
+  * telegram['event'] - dictonary with keys 'active_model', 'active_id', 'active_ids'. Only for commands triggered by base.action.rule.
+  * telegram['base_url'] - url of odoo database
+
+* env - odoo Environment
+  * env.user - current user
+* _logger - logger
+* _ - translate tool
+
+Libs that can be used:
+* re
+* datetime
+* dateutil
+* time
+* tools (openerp.tools)
+* pygal (module telegram_chart is required)
+* types - telebot.types . See https://github.com/eternnoir/pyTelegramBotAPI/blob/master/telebot/types.py and https://core.telegram.org/bots/api#available-types
+* emoji - see https://pypi.python.org/pypi/emoji
+  * emoji.emojize(':thumbsup:', use_aliases=True) - convert alias to emoji unicode. See http://www.webpagefx.com/tools/emoji-cheat-sheet/
+
+</pre>
+                            </p>
+
+                        </page>
+                    </notebook>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_telegram_command" model="ir.actions.act_window">
+        <field name="name">Telegram Commands</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">telegram.command</field>
+        <field name="view_type">form</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
+    <menuitem id="menu_telegram_command" parent="telegram.menu_telegram" name="Telegram Commands" sequence="10" action="action_telegram_command" />
+
+</data>
+</openerp>
